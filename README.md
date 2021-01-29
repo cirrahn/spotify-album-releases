@@ -1,3 +1,11 @@
+# Spotify Release Radar: Albums
+
+This script finds any album releases in your Spotify "Release Radar" and adds them, in full, to a "Release Radar (Albums)" playlist.
+
+Note that re-running the script will any previously-created playlists.
+
+## Installation/Usage
+
 1) `npm i`
 2) Go to [Spotify's developer dashboard](https://developer.spotify.com/dashboard/applications) and register an application. Set the callback URL as `http://localhost:6660/api/provide-token`
 3) `cp credentials.sample.json credentials.json` and edit to include your client ID/secret generated in (2)
