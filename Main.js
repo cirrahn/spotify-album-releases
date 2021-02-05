@@ -113,7 +113,7 @@ class Main {
 
 		if (playlistData.body.tracks.total > playlistData.body.tracks.limit) throw new Error(`Need to implement pagination!`);
 
-		const albumTracks = playlistData.body.tracks.items.filter(trackMeta => trackMeta.track.album.album_type === "album");
+		const albumTracks = playlistData.body.tracks.items.filter(trackMeta => trackMeta.track && trackMeta.track.album.album_type === "album");
 		// Deduplicate album IDs
 		const albumIds = new Set(albumTracks.map(trackMeta => trackMeta.track.album.id));
 
