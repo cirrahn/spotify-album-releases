@@ -117,10 +117,10 @@ class Main {
 		// Deduplicate album IDs
 		const albumIds = new Set(albumTracks.map(trackMeta => trackMeta.track.album.id));
 
-		const albumDatas = await spotifyApi.getAlbums([...albumIds]);
+		const albumMetas = await this._pGetRealAlbums({spotifyApi, albumIds});
 
 		const allTrackUris = [];
-		for (const albumMeta of albumDatas.body.albums) {
+		for (const albumMeta of albumMetas) {
 			const albumTracks = [...albumMeta.tracks.items];
 
 			// Tracks get pulled in bundles of 50
@@ -135,6 +135,86 @@ class Main {
 		return allTrackUris;
 	}
 
+	/**
+	 * Spotify has an annoying habit of putting non-explicit versions of albums in the release radar playlist.
+	 * We're all consenting adults here, so go dredge up the original versions. This requires us to use the search API,
+	 * as there is no link between album versions.
+	 * This *also* requires us to check the entire track listings for each ambiguous album, as the album itself does not
+	 * have an "explicit" flag. :(
+	 */
+	static async _pGetRealAlbums ({spotifyApi, albumIds}) {
+		const albumDatas = await spotifyApi.getAlbums([...albumIds]);
+
+		const out = [];
+
+		for (const albumMeta of albumDatas.body.albums) {
+			console.log(`Fetching matching albums for "${albumMeta.name}"`);
+
+			const artistName = albumMeta.artists[0]?.name;
+			if (!artistName) {
+				console.log(`\tNo artist found, using default version`);
+				out.push(albumMeta);
+				continue;
+			}
+
+			const matchingAlbumMetas = await this._pGetMatchingAlbumMetas({spotifyApi, albumName: albumMeta.name, artistName: artistName});
+			if (matchingAlbumMetas.length <= 1) {
+				console.log(`\tOnly one version found, using default`);
+				out.push(albumMeta);
+				continue;
+			}
+
+			const matchingAlbumMetasExplicit = matchingAlbumMetas.filter(it => it.tracks.items.some(it => it.explicit));
+			if (matchingAlbumMetasExplicit.length) {
+				console.log(`\tExplicit version found, using explicit version`);
+				out.push(matchingAlbumMetasExplicit[0]);
+				continue;
+			}
+			console.log(`\tUsing default version`);
+			out.push(matchingAlbumMetas[0]);
+		}
+
+		return out;
+	}
+
+	static _getEncodedSearchQuery (q) {
+		return q
+			// Remove ampersands, as these kill the SDK
+			.replace(/&/g, "")
+		;
+	}
+
+	static async _pGetMatchingAlbumMetas ({spotifyApi, albumName, artistName}) {
+		const outRaw = [];
+
+		const limit = 50;
+		let total = limit; // Fabricate a total number of results
+		for (let offset = 0; offset < total; offset += 50) {
+			const matchingAlbums = await spotifyApi.searchAlbums(
+				this._getEncodedSearchQuery(`name:${albumName} artist:${artistName}`),
+				{
+					limit,
+					offset,
+				},
+			);
+			outRaw.push(...matchingAlbums.body.albums.items.filter(it => it.name === albumName));
+			total = matchingAlbums.body.albums.total; // Update the total to the real value
+		}
+
+		if (outRaw.length === 0) console.warn(`\tFailed to find "${albumName}" by "${artistName}" in search!`);
+
+		// If there is only one match, return it as-is, since we can use our existing version
+		if (outRaw.length <= 1) return outRaw;
+
+		// If there are multiple matches, we need to pull each from the albums API, as the search API returns them
+		//   without track listings.
+		const out = (await spotifyApi.getAlbums(outRaw.map(it => it.id))).body.albums;
+
+		// Filter to only versions which have the maximal length, as we assume these are preferable (deluxe editions etc.)
+		const maxTracks = Math.max(...out.map(it => it.tracks.total));
+		return out.filter(it => it.tracks.total === maxTracks);
+	}
+
 	static async _pUpdatePlaylist (spotifyApi, trackUris) {
 		const curPlaylistsData = await spotifyApi.getUserPlaylists(Main._CONFIG.user_id, {limit: 50});
 		if (curPlaylistsData.body.total > curPlaylistsData.body.limit) throw new Error(`Need to implement pagination!`);
@@ -144,18 +224,22 @@ class Main {
 			.filter(it => /^Release Radar Albums \(.*?\)$/.exec(it.name));
 
 		// Create a new playlist
-		const nxtPlaylistData = await spotifyApi.createPlaylist(`Release Radar Albums (${Util.getDateString()})`, {
+		const playlistName = `Release Radar Albums (${Util.getDateString()})`;
+		console.log(`Creating playlist "${playlistName}"`)
+		const nxtPlaylistData = await spotifyApi.createPlaylist(playlistName, {
 			'description': 'Album releases from your Release Radar',
 			'public': false
 		});
 
 		// Add tracks; tracks have to be added in batches of 100
+		console.log("Adding tracks");
 		for (let i = 0, len = trackUris.length; i < len; i += Const.PLAYLIST_ADD_TRACK_LIMIT) {
 			await spotifyApi.addTracksToPlaylist(nxtPlaylistData.body.id, trackUris.slice(0, Const.PLAYLIST_ADD_TRACK_LIMIT));
 			trackUris = trackUris.slice(Const.PLAYLIST_ADD_TRACK_LIMIT);
 		}
 
 		// Delete the old playlists, if any exist
+		console.log("Removing old playlists")
 		for (const curReleaseRadarAlbumPlaylist of curReleaseRadarAlbumPlaylists) {
 			await spotifyApi.unfollowPlaylist(curReleaseRadarAlbumPlaylist.id);
 		}
