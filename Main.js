@@ -1,7 +1,8 @@
-const SpotifyWebApi = require('spotify-web-api-node');
-const fs = require("fs");
-const express = require('express');
-const opn = require('opn');
+import SpotifyWebApi from 'spotify-web-api-node'
+import * as fs from "fs";
+import express from "express";
+import opn from "opn";
+import fetch from "node-fetch";
 
 class Const {
 }
@@ -52,7 +53,7 @@ class ExpressWrapper {
 			const code = req.query.code;
 			if (!code) throw new Error("No code!");
 			ExpressWrapper._RESOLVE_CODE(code);
-			res.send("ty for the code");
+			res.send(`<body style="width: 100vw; height: 100vh; background: black; color: #20c20e; font-family: monospace; display: flex; align-items: center; justify-content: center;">ty for the code</body>`);
 		})
 
 		return new Promise(resolve => {
@@ -177,28 +178,24 @@ class Main {
 		return out;
 	}
 
-	static _getEncodedSearchQuery (q) {
-		return q
-			// Remove ampersands, as these kill the SDK
-			.replace(/&/g, "")
-		;
-	}
-
 	static async _pGetMatchingAlbumMetas ({spotifyApi, albumName, artistName}) {
 		const outRaw = [];
 
 		const limit = 50;
 		let total = limit; // Fabricate a total number of results
 		for (let offset = 0; offset < total; offset += 50) {
-			const matchingAlbums = await spotifyApi.searchAlbums(
-				this._getEncodedSearchQuery(`name:${albumName} artist:${artistName}`),
+			// The SDK seems to have difficulty encoding the query correctly, so bodge it ourselves using the SDK's creds
+			const matchingAlbums = await (await fetch(
+				`https://api.spotify.com/v1/search?type=album&limit=${limit}&offset=${offset}&q=name:${encodeURIComponent(albumName)}+artist:${encodeURIComponent(artistName)}`,
 				{
-					limit,
-					offset,
-				},
-			);
-			outRaw.push(...matchingAlbums.body.albums.items.filter(it => it.name === albumName));
-			total = matchingAlbums.body.albums.total; // Update the total to the real value
+					headers: {
+						"Authorization": `Bearer ${spotifyApi._credentials.accessToken}`,
+					}
+				}
+			)).json();
+
+			outRaw.push(...matchingAlbums.albums.items.filter(it => it.name === albumName && it.artists[0]?.name === artistName));
+			total = matchingAlbums.albums.total; // Update the total to the real value
 		}
 
 		if (outRaw.length === 0) console.warn(`\tFailed to find "${albumName}" by "${artistName}" in search!`);
@@ -208,11 +205,22 @@ class Main {
 
 		// If there are multiple matches, we need to pull each from the albums API, as the search API returns them
 		//   without track listings.
-		const out = (await spotifyApi.getAlbums(outRaw.map(it => it.id))).body.albums;
+		const out = await this._pGetAlbumsByIds({spotifyApi, albumIds: outRaw.map(it => it.id)});
 
 		// Filter to only versions which have the maximal length, as we assume these are preferable (deluxe editions etc.)
 		const maxTracks = Math.max(...out.map(it => it.tracks.total));
 		return out.filter(it => it.tracks.total === maxTracks);
+	}
+
+	/**
+	 * Albums can only be fetched 20 at a time.
+	 */
+	static async _pGetAlbumsByIds ({spotifyApi, albumIds}) {
+		const out = [];
+		for (let i = 0; i < albumIds.length; i += 20) {
+			out.push(...(await spotifyApi.getAlbums(albumIds.slice(i, i + 20))).body.albums);
+		}
+		return out;
 	}
 
 	static async _pUpdatePlaylist (spotifyApi, trackUris) {

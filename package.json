@@ -1,14 +1,18 @@
 {
-  "name": "spotify-album-releases",
-  "version": "0.1.0",
-  "main": "Main.js",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/cirrahn/spotify-album-releases.git"
-  },
-  "dependencies": {
-    "express": "^4.17.1",
-    "opn": "^6.0.0",
-    "spotify-web-api-node": "^5.0.2"
-  }
+	"name": "spotify-album-releases",
+	"type": "module",
+	"version": "0.2.0",
+	"main": "Main.js",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/cirrahn/spotify-album-releases.git"
+	},
+	"dependencies": {
+		"express": "^4.17.1",
+		"opn": "^6.0.0",
+		"spotify-web-api-node": "^5.0.2"
+	},
+	"devDependencies": {
+		"node-fetch": "^3.2.4"
+	}
 }
