@@ -144,11 +144,11 @@ class Main {
 	 * have an "explicit" flag. :(
 	 */
 	static async _pGetRealAlbums ({spotifyApi, albumIds}) {
-		const albumDatas = await spotifyApi.getAlbums([...albumIds]);
+		const albumDatas = await this._pGetAlbumDatas({spotifyApi, albumIds});
 
 		const out = [];
 
-		for (const albumMeta of albumDatas.body.albums) {
+		for (const albumMeta of albumDatas) {
 			console.log(`Fetching matching albums for "${albumMeta.name}"`);
 
 			const artistName = albumMeta.artists[0]?.name;
@@ -178,27 +178,57 @@ class Main {
 		return out;
 	}
 
+	static async _pGetAlbumDatas ({spotifyApi, albumIds}) {
+		albumIds = [...albumIds];
+		const out = [];
+		for (let i = 0; i < albumIds.length; i += 20) {
+			out.push(...(await spotifyApi.getAlbums(albumIds.slice(i, i + 20))).body.albums)
+		}
+		return out;
+	}
+
 	static async _pGetMatchingAlbumMetas ({spotifyApi, albumName, artistName}) {
+		const allFetched = [];
 		const outRaw = [];
 
 		const limit = 50;
 		let total = limit; // Fabricate a total number of results
 		for (let offset = 0; offset < total; offset += 50) {
 			// The SDK seems to have difficulty encoding the query correctly, so bodge it ourselves using the SDK's creds
-			const matchingAlbums = await (await fetch(
-				`https://api.spotify.com/v1/search?type=album&limit=${limit}&offset=${offset}&q=name:${encodeURIComponent(albumName)}+artist:${encodeURIComponent(artistName)}`,
+			const resp = await fetch(
+				// `tag:new` limits to albums released in the last 2 weeks
+				`https://api.spotify.com/v1/search?type=album&limit=${limit}&offset=${offset}&q=name:${encodeURIComponent(albumName)}+artist:${encodeURIComponent(artistName)}+tag:new`,
 				{
 					headers: {
 						"Authorization": `Bearer ${spotifyApi._credentials.accessToken}`,
 					}
 				}
-			)).json();
+			);
 
+			// region Handle errors by falling back on our original album
+			const body = await resp.text();
+			let matchingAlbums;
+			try {
+				matchingAlbums = JSON.parse(body);
+			} catch (e) {
+				console.error(`Failed to fetch! API responded with ${resp.status}`)
+				return [];
+			}
+			// endregion
+
+			if (matchingAlbums.error) {
+				console.error(`Failed to fetch! API responded with ${matchingAlbums.error.status}`)
+				return [];
+			}
+
+			allFetched.push(...matchingAlbums.albums.items);
 			outRaw.push(...matchingAlbums.albums.items.filter(it => it.name === albumName && it.artists[0]?.name === artistName));
 			total = matchingAlbums.albums.total; // Update the total to the real value
 		}
 
-		if (outRaw.length === 0) console.warn(`\tFailed to find "${albumName}" by "${artistName}" in search!`);
+		if (outRaw.length === 0) {
+			console.warn(`\tFailed to find "${albumName}" by "${artistName}" in search!`);
+		}
 
 		// If there is only one match, return it as-is, since we can use our existing version
 		if (outRaw.length <= 1) return outRaw;
