@@ -2,7 +2,6 @@ import SpotifyWebApi from 'spotify-web-api-node'
 import * as fs from "fs";
 import express from "express";
 import opn from "opn";
-import fetch from "node-fetch";
 
 class Const {
 }
