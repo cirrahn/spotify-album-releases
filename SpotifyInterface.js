@@ -2,20 +2,15 @@ import {Util} from "./Util.js";
 import {Const} from "./Const.js";
 
 export class SpotifyInterface {
-	static _isInit = false;
-	static _releaseRadarPlaylistId;
-	static _userId;
-
-	static init ({releaseRadarPlaylistId, userId}) {
-		this._isInit = true;
-		this._releaseRadarPlaylistId = releaseRadarPlaylistId;
-		this._userId = userId;
+	static async pCreateReleaseRadarPlaylist ({spotifyApi, releaseRadarPlaylistId, userId}) {
+		const trackUris = await SpotifyInterface._pGetReleaseRadarUris({spotifyApi, releaseRadarPlaylistId});
+		await SpotifyInterface._pUpdatePlaylist({spotifyApi, trackUris, userId});
 	}
 
-	static async pGetReleaseRadarUris (spotifyApi) {
-		if (!this._isInit) throw new Error(`Not initialized!`);
+	/* ------------------------------------------------ */
 
-		const playlistData = await spotifyApi.getPlaylist(this._releaseRadarPlaylistId, {limit: 1000});
+	static async _pGetReleaseRadarUris ({spotifyApi, releaseRadarPlaylistId}) {
+		const playlistData = await spotifyApi.getPlaylist(releaseRadarPlaylistId, {limit: 1000});
 
 		if (playlistData.body.tracks.total > playlistData.body.tracks.limit) throw new Error(`Need to implement pagination!`);
 
@@ -176,14 +171,12 @@ export class SpotifyInterface {
 		return out;
 	}
 
-	static async pUpdatePlaylist (spotifyApi, trackUris) {
-		if (!this._isInit) throw new Error(`Not initialized!`);
-
-		const curPlaylistsData = await spotifyApi.getUserPlaylists(this._userId, {limit: 50});
+	static async _pUpdatePlaylist ({spotifyApi, trackUris, userId}) {
+		const curPlaylistsData = await spotifyApi.getUserPlaylists(userId, {limit: 50});
 		if (curPlaylistsData.body.total > curPlaylistsData.body.limit) throw new Error(`Need to implement pagination!`);
 
 		const curReleaseRadarAlbumPlaylists = curPlaylistsData.body.items
-			.filter(it => it.owner.id === this._userId /*|| it.owner.id === "spotify"*/)
+			.filter(it => it.owner.id === userId /*|| it.owner.id === "spotify"*/)
 			.filter(it => /^Release Radar Albums \(.*?\)$/.exec(it.name));
 
 		// Create a new playlist
@@ -202,9 +195,24 @@ export class SpotifyInterface {
 		}
 
 		// Delete the old playlists, if any exist
-		console.log("Removing old playlists");
+		console.log(`Removing ${curReleaseRadarAlbumPlaylists.length} old playlist(s)`);
 		for (const curReleaseRadarAlbumPlaylist of curReleaseRadarAlbumPlaylists) {
 			await spotifyApi.unfollowPlaylist(curReleaseRadarAlbumPlaylist.id);
 		}
+	}
+
+	/* ------------------------------------------------ */
+
+	static async pGetReleaseRadarPlaylistId ({spotifyApi, userId}) {
+		const curPlaylistsData = await spotifyApi.getUserPlaylists(userId, {limit: 50});
+		if (curPlaylistsData.body.total > curPlaylistsData.body.limit) throw new Error(`Need to implement pagination!`);
+
+		const curReleaseRadarPlaylists = curPlaylistsData.body.items
+			.filter(it => it.owner.id === "spotify")
+			.filter(it => it.name === "Release Radar");
+
+		if (!curReleaseRadarPlaylists.length) throw new Error(`Could not find release radar playlist!`);
+		if (curReleaseRadarPlaylists.length > 1) throw new Error(`Found multiple release radar playlists!?`);
+		return curReleaseRadarPlaylists[0].id;
 	}
 }

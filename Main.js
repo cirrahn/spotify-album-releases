@@ -65,12 +65,11 @@ class Main {
 		await ExpressWrapper.pInit();
 
 		const {spotifyApi, config} = await ExpressWrapper.pGetSpotifyApi();
-		SpotifyInterface.init({
+		await SpotifyInterface.pCreateReleaseRadarPlaylist({
+			spotifyApi,
 			releaseRadarPlaylistId: config.release_radar_playlist_id,
 			userId: config.user_id,
-		})
-		const uris = await SpotifyInterface.pGetReleaseRadarUris(spotifyApi);
-		await SpotifyInterface.pUpdatePlaylist(spotifyApi, uris);
+		});
 	}
 }
 
