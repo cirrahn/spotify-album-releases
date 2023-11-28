@@ -193,9 +193,19 @@ class Main {
 		let total = limit; // Fabricate a total number of results
 		for (let offset = 0; offset < total; offset += 50) {
 			// The SDK seems to have difficulty encoding the query correctly, so bodge it ourselves using the SDK's creds
-			const resp = await fetch(
+			const url = new URL("https://api.spotify.com/v1/search");
+
+			[
+				{key: "type", value: "album"},
+				{key: "limit", value: limit},
+				{key: "offset", value: offset},
+				{key: "locale", value: "GB"},
 				// `tag:new` limits to albums released in the last 2 weeks
-				`https://api.spotify.com/v1/search?type=album&limit=${limit}&offset=${offset}&q=name:${encodeURIComponent(albumName)}+artist:${encodeURIComponent(artistName)}+tag:new`,
+				{key: "q", value: `album:${this._getCleanQueryName(albumName)} artist:${this._getCleanQueryName(artistName)} tag:new`},
+			].forEach(({key, value}) => url.searchParams.append(key, value));
+
+			const resp = await fetch(
+				url,
 				{
 					headers: {
 						"Authorization": `Bearer ${spotifyApi._credentials.accessToken}`,
@@ -220,7 +230,7 @@ class Main {
 			}
 
 			allFetched.push(...matchingAlbums.albums.items);
-			outRaw.push(...matchingAlbums.albums.items.filter(it => it.name === albumName && it.artists[0]?.name === artistName));
+			outRaw.push(...matchingAlbums.albums.items.filter(it => it.album_type !== "single" && it.name === albumName && it.artists[0]?.name === artistName));
 			total = matchingAlbums.albums.total; // Update the total to the real value
 		}
 
@@ -238,6 +248,14 @@ class Main {
 		// Filter to only versions which have the maximal length, as we assume these are preferable (deluxe editions etc.)
 		const maxTracks = Math.max(...out.map(it => it.tracks.total));
 		return out.filter(it => it.tracks.total === maxTracks);
+	}
+
+	static _getCleanQueryName (str) {
+		return str
+			.replace(/:/g, " ")
+			.replace(/\s+/g, " ")
+			.trim()
+		;
 	}
 
 	/**
