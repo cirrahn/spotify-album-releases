@@ -10,13 +10,19 @@ export class SpotifyInterface {
 	/* ------------------------------------------------ */
 
 	static async _pGetReleaseRadarUris ({spotifyApi, releaseRadarPlaylistId}) {
-		const playlistData = await spotifyApi.getPlaylist(releaseRadarPlaylistId, {limit: 1000});
+		const albumIds = new Set();
 
-		if (playlistData.body.tracks.total > playlistData.body.tracks.limit) throw new Error(`Need to implement pagination!`);
+		const limit = 1000;
+		let total = limit; // Fabricate a total number of results
+		for (let offset = 0; offset < total; offset += limit) {
+			const playlistData = await spotifyApi.getPlaylist(releaseRadarPlaylistId, {limit});
 
-		const albumTracks = playlistData.body.tracks.items.filter(trackMeta => trackMeta.track && trackMeta.track.album.album_type === "album");
-		// Deduplicate album IDs
-		const albumIds = new Set(albumTracks.map(trackMeta => trackMeta.track.album.id));
+			const albumTracks = playlistData.body.tracks.items.filter(trackMeta => trackMeta.track && trackMeta.track.album.album_type === "album");
+			// Deduplicate album IDs
+			albumTracks.map(trackMeta => trackMeta.track.album.id).forEach(id => albumIds.add(id));
+
+			total = playlistData.body.tracks.total;
+		}
 
 		const albumMetas = await this._pGetRealAlbums({spotifyApi, albumIds});
 
