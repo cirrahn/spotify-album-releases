@@ -31,8 +31,8 @@ export class SpotifyInterface {
 			const albumTracks = [...albumMeta.tracks.items];
 
 			// Tracks get pulled in bundles of 50
-			for (let i = 50; i < albumMeta.tracks.total; i += 50) {
-				const nxtTracksData = await spotifyApi.getAlbumTracks(albumMeta.id, {limit: 50, offset: i});
+			for (let offset = 50; offset < albumMeta.tracks.total; offset += 50) {
+				const nxtTracksData = await spotifyApi.getAlbumTracks(albumMeta.id, {limit: 50, offset});
 				albumTracks.push(...nxtTracksData.body.items);
 			}
 
@@ -178,10 +178,9 @@ export class SpotifyInterface {
 	}
 
 	static async _pUpdatePlaylist ({spotifyApi, trackUris, userId}) {
-		const curPlaylistsData = await spotifyApi.getUserPlaylists(userId, {limit: 50});
-		if (curPlaylistsData.body.total > curPlaylistsData.body.limit) throw new Error(`Need to implement pagination!`);
+		const curPlaylistsData = await this._pGetUserPlaylists({spotifyApi, userId});
 
-		const curReleaseRadarAlbumPlaylists = curPlaylistsData.body.items
+		const curReleaseRadarAlbumPlaylists = curPlaylistsData
 			.filter(it => it.owner.id === userId /*|| it.owner.id === "spotify"*/)
 			.filter(it => /^Release Radar Albums \(.*?\)$/.exec(it.name));
 
@@ -210,15 +209,33 @@ export class SpotifyInterface {
 	/* ------------------------------------------------ */
 
 	static async pGetReleaseRadarPlaylistId ({spotifyApi, userId}) {
-		const curPlaylistsData = await spotifyApi.getUserPlaylists(userId, {limit: 50});
-		if (curPlaylistsData.body.total > curPlaylistsData.body.limit) throw new Error(`Need to implement pagination!`);
+		const curPlaylistsData = await this._pGetUserPlaylists({spotifyApi, userId});
 
-		const curReleaseRadarPlaylists = curPlaylistsData.body.items
+		const curReleaseRadarPlaylists = curPlaylistsData
 			.filter(it => it.owner.id === "spotify")
 			.filter(it => it.name === "Release Radar");
 
 		if (!curReleaseRadarPlaylists.length) throw new Error(`Could not find release radar playlist!`);
 		if (curReleaseRadarPlaylists.length > 1) throw new Error(`Found multiple release radar playlists!?`);
 		return curReleaseRadarPlaylists[0].id;
+	}
+
+	/* ------------------------------------------------ */
+
+	static async _pGetUserPlaylists ({spotifyApi, userId}) {
+		const allPlaylistsData = [];
+
+		const limit = 50;
+		let total = limit; // Fabricate a total number of results
+
+		for (let offset = 0; offset < total; offset += limit) {
+			const curPlaylistsData = await spotifyApi.getUserPlaylists(userId, {limit: 50, offset});
+
+			allPlaylistsData.push(...curPlaylistsData.body.items);
+
+			total = curPlaylistsData.body.total;
+		}
+
+		return allPlaylistsData;
 	}
 }
