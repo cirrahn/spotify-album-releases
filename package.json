@@ -2,10 +2,13 @@
 	"name": "spotify-album-releases",
 	"type": "module",
 	"version": "0.2.0",
-	"main": "Server.js",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/cirrahn/spotify-album-releases.git"
+	},
+	"scripts": {
+		"start": "node src/Server.js",
+		"script": "node src/Script.js"
 	},
 	"dependencies": {
 		"express": "^4.17.1",

@@ -61,7 +61,7 @@ ExpressWrapper.PROMISE_CODE = new Promise(resolve => {
 	ExpressWrapper._RESOLVE_CODE = resolve;
 });
 
-class Main {
+class Script {
 	static async run () {
 		await ExpressWrapper.pInit();
 
@@ -74,7 +74,7 @@ class Main {
 	}
 }
 
-Main.run()
+Script.run()
 	.catch(e => {
 		throw e;
 	})
