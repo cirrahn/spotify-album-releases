@@ -6,6 +6,7 @@ import {SpotifyInterface} from "./SpotifyInterface.js";
 
 const ENDPOINT = "/redirect";
 
+// TODO rework
 const CSS_FONT_COLOR = `color: #20c20e;`
 const CSS_GENERIC = `width: 100vw; height: 100vh; padding: 0; margin: 0; background: black; font-family: monospace; display: flex; align-items: center; justify-content: center; ${CSS_FONT_COLOR}`
 
@@ -23,29 +24,37 @@ const getSpotifyApi = () => new SpotifyWebApi({
 
 const app = express();
 
-app.get('/', async (req, res) => {
-	const spotifyApi = getSpotifyApi();
+app.get('/', async (req, res, next) => {
+	try {
+		const spotifyApi = getSpotifyApi();
 
-	const authorizeURL = await spotifyApi.createAuthorizeURL(Const.ALL_SCOPES);
+		const authorizeURL = await spotifyApi.createAuthorizeURL(Const.ALL_SCOPES);
 
-	res.send(`<body style="${CSS_GENERIC}"><a href="${authorizeURL}" style="${CSS_FONT_COLOR}">click me</a></body>`);
+		res.send(`<body style="${CSS_GENERIC}"><a href="${authorizeURL}" style="${CSS_FONT_COLOR}">click me</a></body>`);
+	} catch (e) {
+		next(e);
+	}
 })
 
-app.get('/redirect', async (req, res) => {
-	const spotifyApi = getSpotifyApi();
+app.get('/redirect', async (req, res, next) => {
+	try {
+		const spotifyApi = getSpotifyApi();
 
-	const authData = await spotifyApi.authorizationCodeGrant(req.query.code);
-	spotifyApi.setAccessToken(authData.body['access_token']);
-	spotifyApi.setRefreshToken(authData.body['refresh_token']);
+		const authData = await spotifyApi.authorizationCodeGrant(req.query.code);
+		spotifyApi.setAccessToken(authData.body['access_token']);
+		spotifyApi.setRefreshToken(authData.body['refresh_token']);
 
-	const user = await spotifyApi.getMe();
-	const playlistId = await SpotifyInterface.pGetReleaseRadarPlaylistId({spotifyApi, userId: user.body.id});
+		const user = await spotifyApi.getMe();
+		const playlistId = await SpotifyInterface.pGetReleaseRadarPlaylistId({spotifyApi, userId: user.body.id});
 
-	await SpotifyInterface.pCreateReleaseRadarPlaylist({spotifyApi, userId: user.body.id, releaseRadarPlaylistId: playlistId});
+		await SpotifyInterface.pCreateReleaseRadarPlaylist({spotifyApi, userId: user.body.id, releaseRadarPlaylistId: playlistId});
 
-	res.send(`<body style="${CSS_GENERIC}"><div>enjoy, ${(user.body?.display_name || "").split(" ")[0] || "Mysterious Person"} :)</div></body>`);
+		res.send(`<body style="${CSS_GENERIC}"><div>enjoy, ${(user.body?.display_name || "").split(" ")[0] || "Mysterious Person"} :)</div></body>`);
+	} catch (e) {
+		next(e);
+	}
 });
 
 app.listen(Const.PORT_CALLBACK, () => {
-	console.log(`Listening at ${HOST}:${Const.PORT_CALLBACK}`);
+	console.log(`Listening at ${config.host}:${Const.PORT_CALLBACK}`);
 });

@@ -14,6 +14,7 @@ class ExpressWrapper {
 			const code = req.query.code;
 			if (!code) throw new Error("No code!");
 			ExpressWrapper._RESOLVE_CODE(code);
+			// TODO rework
 			res.send(`<body style="width: 100vw; height: 100vh; background: black; color: #20c20e; font-family: monospace; display: flex; align-items: center; justify-content: center;"><div>ty for the code</div><script>setTimeout(() => window.close(), 1)</script></body>`);
 		})
 

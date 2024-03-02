@@ -2,7 +2,7 @@
 	"name": "spotify-album-releases",
 	"type": "module",
 	"version": "0.2.0",
-	"main": "Main.js",
+	"main": "Server.js",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/cirrahn/spotify-album-releases.git"
