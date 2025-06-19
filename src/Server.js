@@ -3,6 +3,7 @@ import {Util} from "./Util.js";
 import SpotifyWebApi from "spotify-web-api-node";
 import {Const} from "./Const.js";
 import {SpotifyInterface} from "./SpotifyInterface.js";
+import {ConfigManager} from "./ConfigManager.js";
 
 const ENDPOINT = "/redirect";
 
@@ -13,13 +14,12 @@ const CSS_GENERIC = `width: 100vw; height: 100vh; padding: 0; margin: 0; backgro
 const creds = Util.getJson("./credentials.json");
 if (!creds.client_id || !creds.client_secret) throw new Error(`Credentials missing!`);
 
-const config = Util.getJson("./config.json");
-if (!config.host) throw new Error(`"host" missing from config.json!`);
+ConfigManager.validateConfig(["host"]);
 
 const getSpotifyApi = () => new SpotifyWebApi({
 	clientId: creds.client_id,
 	clientSecret: creds.client_secret,
-	redirectUri: `${config.host}:${Const.PORT_CALLBACK}${ENDPOINT}`,
+	redirectUri: `${ConfigManager.CONFIG.host}:${Const.PORT_CALLBACK}${ENDPOINT}`,
 });
 
 const app = express();
@@ -56,5 +56,5 @@ app.get('/redirect', async (req, res, next) => {
 });
 
 app.listen(Const.PORT_CALLBACK, () => {
-	console.log(`Listening at ${config.host}:${Const.PORT_CALLBACK}`);
+	console.log(`Listening at ${ConfigManager.CONFIG.host}:${Const.PORT_CALLBACK}`);
 });

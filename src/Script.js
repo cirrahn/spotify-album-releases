@@ -4,6 +4,7 @@ import opn from "opn";
 import {Const} from "./Const.js";
 import {Util} from "./Util.js";
 import {SpotifyInterface} from "./SpotifyInterface.js";
+import {ConfigManager} from "./ConfigManager.js";
 
 /** Run a tiny express server to accept callback redirects. */
 class ExpressWrapper {
@@ -30,8 +31,7 @@ class ExpressWrapper {
 		const creds = Util.getJson("./credentials.json");
 		if (!creds.client_id || !creds.client_secret) throw new Error(`Credentials missing!`);
 
-		const config = Util.getJson("./config.json");
-		if (!config.user_id || !config.release_radar_playlist_id) throw new Error(`Config missing!`);
+		ConfigManager.validateConfig(["user_id", "release_radar_playlist_id"]);
 
 		const spotifyApi = new SpotifyWebApi({
 			clientId: creds.client_id,
@@ -53,7 +53,7 @@ class ExpressWrapper {
 		// spotifyApi.setAccessToken(data.body['access_token']);
 		// endregion
 
-		return {spotifyApi, config};
+		return {spotifyApi, config: ConfigManager.CONFIG};
 	}
 }
 
@@ -82,4 +82,3 @@ Script.run()
 		console.log("Done!");
 		process.exit(0); // Force exit to kill the Express server
 	});
-

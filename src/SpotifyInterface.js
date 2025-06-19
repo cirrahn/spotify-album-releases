@@ -1,5 +1,6 @@
 import {Util} from "./Util.js";
 import {Const} from "./Const.js";
+import {ConfigManager} from "./ConfigManager.js";
 
 export class SpotifyInterface {
 	static async pCreateReleaseRadarPlaylist ({spotifyApi, releaseRadarPlaylistId, userId}) {
@@ -55,6 +56,13 @@ export class SpotifyInterface {
 		const out = [];
 
 		for (const albumMeta of albumDatas) {
+			if (ConfigManager.CONFIG.album_name_blocklist.some(re => {
+				const isSkip = re.test(albumMeta.name);
+				if (!isSkip) return false;
+				console.log(`Skipping blocklisted album "${albumMeta.name}" (blocklisted by expression "${re}")`);
+				return true;
+			})) continue;
+
 			console.log(`Fetching matching albums for "${albumMeta.name}"`);
 
 			const artistName = albumMeta.artists[0]?.name;
