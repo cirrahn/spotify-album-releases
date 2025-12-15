@@ -9,7 +9,7 @@ export class Const {
 		"user-library-read",
 	];
 	static PORT_CALLBACK = 6660;
-	static HOST_CALLBACK = "http://localhost";
+	static HOST_CALLBACK = "http://127.0.0.1";
 	static ENDPOINT_CALLBACK = "/api/provide-token";
 	static PLAYLIST_ADD_TRACK_LIMIT = 100;
 }
