@@ -73,19 +73,25 @@ export class SpotifyInterface {
 			}
 
 			const matchingAlbumMetas = await this._pGetMatchingAlbumMetas({spotifyApi, albumName: albumMeta.name, artistName: artistName});
-			if (matchingAlbumMetas.length <= 1) {
-				console.log(`\tOnly one version found, using default`);
+			if (!matchingAlbumMetas.length) {
+				console.log(`\tNo matching albums found via search, using default`);
+				out.push(albumMeta);
+				continue;
+			}
+
+			if (matchingAlbumMetas.length === 1) {
+				console.log(`\tOnly one version found via search, using default`);
 				out.push(albumMeta);
 				continue;
 			}
 
 			const matchingAlbumMetasExplicit = matchingAlbumMetas.filter(it => it.tracks.items.some(it => it.explicit));
 			if (matchingAlbumMetasExplicit.length) {
-				console.log(`\tExplicit version found, using explicit version`);
+				console.log(`\t${matchingAlbumMetas.length} versions found. Explicit version found, using explicit version`);
 				out.push(matchingAlbumMetasExplicit[0]);
 				continue;
 			}
-			console.log(`\tUsing default version`);
+			console.log(`\t${matchingAlbumMetas.length} versions found. Using default version`);
 			out.push(matchingAlbumMetas[0]);
 		}
 
